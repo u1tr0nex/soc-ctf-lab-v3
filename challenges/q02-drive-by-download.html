@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q2 Drive-by Download</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="ctf-shared.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:#0a0f14;color:#cbd5e1;min-height:100vh}
+.back{margin:1rem;color:#38bdf8;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem}
+header{padding:1rem 2rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #1e3a5f}
+header h1{font-size:1.3rem;color:#7dd3fc;font-family:'Source Code Pro',monospace}
+.bar{height:8px;width:200px;background:#1e293b;border-radius:4px;overflow:hidden;margin-top:.4rem}
+#bar{height:100%;background:#0ea5e9;width:0;transition:.3s}
+.overview{border-color:#1e3a5f}
+.tree-wrap{margin:1rem 2rem;padding:1.25rem;background:#0f172a;border:1px solid #334155;border-radius:12px;overflow-x:auto}
+.tree{display:flex;flex-direction:column;align-items:flex-start;gap:.5rem;font-family:'Source Code Pro',monospace;font-size:.82rem}
+.tree-node{display:flex;align-items:center;gap:.5rem;padding:.4rem .75rem;border-radius:8px;background:#1e293b;border:1px solid #334155;animation:nodePulse 3s ease-in-out infinite}
+.tree-node.suspicious{border-color:#f87171;background:rgba(248,113,113,.12);animation-delay:.5s}
+.tree-connector{width:2px;height:16px;background:#475569;margin-left:1.5rem}
+@keyframes nodePulse{0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,0)}50%{box-shadow:0 0 12px 2px rgba(14,165,233,.35)}}
+.tree-node.suspicious{animation-name:suspPulse}
+@keyframes suspPulse{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}50%{box-shadow:0 0 14px 3px rgba(248,113,113,.4)}}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;padding:1rem 2rem 2rem}
+.card{background:#111827;padding:1.15rem;border:1px solid #1f2937;border-radius:12px;overflow:hidden}
+.card h3{font-size:.95rem;color:#7dd3fc;margin-bottom:.5rem}
+button.chk{background:#0284c7;color:#fff;border:none;padding:.5rem 1rem;border-radius:8px;cursor:pointer;font-weight:600}
+.card select,.card input[type=text]{background:#0f172a;color:#e2e8f0;border:1px solid #475569}
+#flag{display:none;margin:0 2rem 2rem;text-align:center;border:1px solid #4ade80;padding:1rem;border-radius:10px}
+#flag.show{display:block}
+#scoreSub{font-size:.75rem;color:#64748b;margin-top:.2rem}
+</style>
+</head>
+<body>
+<a class="back" href="../index.html"><i class="fa fa-arrow-left"></i> Back to hub</a>
+<header>
+<div><h1><i class="fa fa-globe"></i> Q2 — Browser Exploitation (Drive-by Download)</h1></div>
+<div class="actions">
+<div>Score <span id="score">0</span>/100</div>
+<div id="scoreSub"></div>
+<div class="bar"><div id="bar"></div></div>
+<button class="btn-reset" type="button" id="btnReset">Reset challenge</button>
+</div>
+</header>
+<div class="overview">
+<h2>Scenario briefing</h2>
+<p>A user visited a compromised website. EDR captured a suspicious parent-child process chain: <strong>chrome.exe</strong> spawning <strong>powershell.exe</strong> with a download cradle. Network logs show outbound connections to a malicious host.</p>
+</div>
+<div class="tree-wrap">
+<div class="tree">
+<div class="tree-node"><i class="fa fa-chrome" style="color:#fbbf24"></i> chrome.exe (PID 8844) — visited evil-cdn-update[.]net</div>
+<div class="tree-connector"></div>
+<div class="tree-node suspicious"><i class="fa fa-terminal" style="color:#f87171"></i> powershell.exe (PID 9012) — parent: chrome.exe</div>
+<div class="tree-connector"></div>
+<div class="tree-node suspicious"><i class="fa fa-file-code" style="color:#f87171"></i> IEX (New-Object Net.WebClient).DownloadString(...)</div>
+</div>
+</div>
+<main class="grid">
+<div class="card"><h3>Task 1 — Suspicious process chain</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Which parent-child relationship is the primary indicator?</p>
+<select id="t1">
+<option value="">Select relationship</option>
+<option>explorer.exe → notepad.exe</option>
+<option>svchost.exe → services.exe</option>
+<option>chrome.exe → powershell.exe</option>
+<option>winlogon.exe → lsass.exe</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="1">Check</button><button class="btn-hint" data-hint="1">Hint (-5)</button></div>
+<p class="hint-line" id="hint-1"></p><div id="f1" class="fb"></div></div>
+
+<div class="card"><h3>Task 2 — Malicious network connection</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Proxy log excerpt:</p>
+<div class="evidence">10:22:14 chrome.exe → <span class="bad">203.0.113.88:443</span> evil-cdn-update.net<br>
+10:22:15 chrome.exe → 142.250.80.46 google.com<br>
+10:22:16 powershell.exe → 203.0.113.88:443</div>
+<select id="t2">
+<option value="">Select destination</option>
+<option>142.250.80.46 (Google)</option>
+<option>8.8.8.8 (DNS)</option>
+<option>203.0.113.88 (evil-cdn-update.net)</option>
+<option>127.0.0.1 (localhost)</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="2">Check</button><button class="btn-hint" data-hint="2">Hint (-5)</button></div>
+<p class="hint-line" id="hint-2"></p><div id="f2" class="fb"></div></div>
+
+<div class="card"><h3>Task 3 — Downloaded file hash</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">File written to <code>%TEMP%\update.ps1</code> — enter the SHA256 hash:</p>
+<div class="evidence">SHA256: <span class="hl">a3f5c8d91e2b0476f8a1c3d5e7b9f0a2c4d6e8f1a3b5c7d9e1f3a5b7c9d1e3f5</span></div>
+<input type="text" id="t3" placeholder="Paste SHA256 hash">
+<div class="toolbar"><button class="chk" data-task="3">Check</button><button class="btn-hint" data-hint="3">Hint (-5)</button></div>
+<p class="hint-line" id="hint-3"></p><div id="f3" class="fb"></div></div>
+
+<div class="card"><h3>Task 4 — Persistence check</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Was persistence established?</p>
+<div class="evidence">Scheduled Task created: <span class="bad">\Microsoft\Windows\UpdateCheck</span><br>
+Action: powershell.exe -ep bypass -f %TEMP%\update.ps1<br>
+Author: DESK-042\jsmith</div>
+<label class="choice"><input type="radio" name="t4" value="a"><span>No persistence — only memory-resident malware</span></label>
+<label class="choice"><input type="radio" name="t4" value="b"><span>Scheduled task persistence detected</span></label>
+<label class="choice"><input type="radio" name="t4" value="c"><span>Registry Run key only — no scheduled task</span></label>
+<label class="choice"><input type="radio" name="t4" value="d"><span>Windows Service created named WinDefendSvc</span></label>
+<div class="toolbar"><button class="chk" data-task="4">Check</button><button class="btn-hint" data-hint="4">Hint (-5)</button></div>
+<p class="hint-line" id="hint-4"></p><div id="f4" class="fb"></div></div>
+
+<div class="card"><h3>Task 5 — Block malicious domain</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Recommended DNS/firewall action:</p>
+<label class="choice"><input type="radio" name="t5" value="a"><span>Whitelist evil-cdn-update.net for CDN performance</span></label>
+<label class="choice"><input type="radio" name="t5" value="b"><span>Block evil-cdn-update.net at DNS proxy and web filter</span></label>
+<label class="choice"><input type="radio" name="t5" value="c"><span>Disable all HTTPS inspection</span></label>
+<label class="choice"><input type="radio" name="t5" value="d"><span>Allow all outbound PowerShell traffic</span></label>
+<div class="toolbar"><button class="chk" data-task="5">Check</button><button class="btn-hint" data-hint="5">Hint (-5)</button></div>
+<p class="hint-line" id="hint-5"></p><div id="f5" class="fb"></div></div>
+</main>
+<div id="flag"><p style="color:#4ade80;font-family:monospace;font-size:1rem">FLAG{DRIVE_BY_DOWNLOAD}</p></div>
+<script src="ctf-engine.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const HASH='a3f5c8d91e2b0476f8a1c3d5e7b9f0a2c4d6e8f1a3b5c7d9e1f3a5b7c9d1e3f5';
+const CTF=initCTF({id:'q02',flag:'FLAG{DRIVE_BY_DOWNLOAD}'});
+const hints={
+1:'Browsers should not spawn PowerShell with encoded commands.',
+2:'Ignore legitimate Google traffic — focus on the typosquat CDN domain.',
+3:'Copy the SHA256 from the evidence block exactly.',
+4:'Look for newly created scheduled tasks with suspicious names.',
+5:'Block the compromised domain at your security controls.'
+};
+document.querySelectorAll('.chk').forEach(b=>b.onclick=()=>{
+const n=+b.dataset.task;
+const ok=n===1?$('t1').value.includes('chrome.exe')
+:n===2?$('t2').value.includes('203.0.113.88')
+:n===3?$('t3').value.replace(/\s/g,'').toLowerCase()===HASH.toLowerCase()
+:n===4?document.querySelector('input[name=t4]:checked')?.value==='b'
+:document.querySelector('input[name=t5]:checked')?.value==='b';
+CTF.check(n,ok,'f'+n);
+});
+document.querySelectorAll('[data-hint]').forEach(b=>b.onclick=()=>CTF.hint(+b.dataset.hint,hints[+b.dataset.hint],'hint-'+b.dataset.hint));
+$('btnReset').onclick=()=>CTF.reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q1 USB Drop Attack</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="ctf-shared.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:linear-gradient(165deg,#0f0a1a 0%,#1a1033 50%,#0d1520 100%);color:#e2e8f0;min-height:100vh}
+.back{margin:1rem;color:#a78bfa;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem}
+header{padding:1rem 2rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid rgba(167,139,250,.2)}
+header h1{font-size:1.35rem;color:#c4b5fd}
+.bar{height:8px;width:200px;background:#312e81;border-radius:4px;overflow:hidden;margin-top:.4rem}
+#bar{height:100%;background:linear-gradient(90deg,#a78bfa,#6366f1);width:0;transition:.3s}
+.overview{border-color:rgba(167,139,250,.25)}
+.usb-stage{position:relative;height:140px;margin:1rem 2rem;background:linear-gradient(180deg,#1e1b4b 0%,#0f172a 100%);border:1px solid rgba(167,139,250,.3);border-radius:12px;overflow:hidden}
+.usb-port{position:absolute;left:8%;top:50%;transform:translateY(-50%);width:48px;height:28px;background:#334155;border:2px solid #64748b;border-radius:4px}
+.usb-stick{position:absolute;left:-60px;top:50%;transform:translateY(-50%);width:70px;height:22px;background:linear-gradient(90deg,#dc2626,#991b1b);border-radius:3px;animation:usbInsert 4s ease-in-out infinite}
+.usb-stick::after{content:'Kingston';position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:7px;color:#fecaca;font-weight:700}
+@keyframes usbInsert{0%,15%{left:-60px;opacity:0}25%,55%{left:10%;opacity:1}65%,100%{left:10%;opacity:1}}
+.autorun-flash{position:absolute;left:22%;top:35%;font-size:.75rem;color:#fbbf24;opacity:0;animation:autorunFlash 4s ease-in-out infinite}
+@keyframes autorunFlash{0%,50%{opacity:0}55%,75%{opacity:1}100%{opacity:0}}
+.exe-launch{position:absolute;right:15%;top:40%;font-family:monospace;font-size:.8rem;color:#4ade80;opacity:0;animation:exeLaunch 4s ease-in-out infinite}
+@keyframes exeLaunch{0%,70%{opacity:0;transform:translateY(0)}75%,95%{opacity:1;transform:translateY(-8px)}100%{opacity:0}}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;padding:1rem 2rem 2rem}
+.card{background:rgba(30,27,75,.6);padding:1.15rem;border:1px solid rgba(167,139,250,.2);border-radius:12px;overflow:hidden;backdrop-filter:blur(6px)}
+.card h3{font-size:.95rem;color:#c4b5fd;margin-bottom:.5rem}
+button.chk{background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;border:none;padding:.5rem 1rem;border-radius:8px;cursor:pointer;font-weight:600}
+.card select,.card input[type=text]{background:#0f172a;color:#e2e8f0;border:1px solid #475569}
+#flag{display:none;margin:0 2rem 2rem;text-align:center;border:1px solid #4ade80;padding:1rem;border-radius:10px;background:rgba(74,222,128,.06)}
+#flag.show{display:block}
+#scoreSub{font-size:.75rem;color:#94a3b8;margin-top:.2rem}
+</style>
+</head>
+<body>
+<a class="back" href="../index.html"><i class="fa fa-arrow-left"></i> Back to hub</a>
+<header>
+<div><h1><i class="fa fa-usb"></i> Q1 — USB Drop Attack Investigation</h1></div>
+<div class="actions">
+<div>Score <span id="score">0</span>/100</div>
+<div id="scoreSub"></div>
+<div class="bar"><div id="bar"></div></div>
+<button class="btn-reset" type="button" id="btnReset">Reset challenge</button>
+</div>
+</header>
+<div class="overview">
+<h2>Scenario briefing</h2>
+<p>Device insertion logs show a new USB device <strong>Kingston</strong> at <strong>14:00</strong>, followed by execution of <code>payload.exe</code> from drive <strong>D:\</strong>. Investigate the incident timeline, identify the user session, analyze the payload behavior, and recommend containment.</p>
+</div>
+<div class="usb-stage">
+<div class="usb-port"></div>
+<div class="usb-stick"></div>
+<div class="autorun-flash"><i class="fa fa-bolt"></i> Autorun.inf triggered</div>
+<div class="exe-launch">D:\payload.exe</div>
+</div>
+<main class="grid">
+<div class="card"><h3>Task 1 — Event IDs</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Which Windows event IDs relate to this USB insertion and file execution?</p>
+<div class="evidence">14:00:02 Event <span class="hl">2003</span> — Device configured (Kingston DataTraveler)<br>
+14:00:08 Event <span class="hl">4663</span> — Object access: D:\payload.exe<br>
+14:00:09 Event 4688 — Process creation: payload.exe</div>
+<label class="choice"><input type="checkbox" id="e7031"><span>7031 — Service control manager</span></label>
+<label class="choice"><input type="checkbox" id="e2003"><span>2003 — Device configured / USB insertion</span></label>
+<label class="choice"><input type="checkbox" id="e4663"><span>4663 — Object (file) access audit</span></label>
+<label class="choice"><input type="checkbox" id="e4624"><span>4624 — Successful logon only</span></label>
+<div class="toolbar"><button class="chk" data-task="1">Check</button><button class="btn-hint" data-hint="1">Hint (-5)</button></div>
+<p class="hint-line" id="hint-1"></p><div id="f1" class="fb"></div></div>
+
+<div class="card"><h3>Task 2 — Logged-on user</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Security log at 14:00 — who had an active interactive session?</p>
+<div class="evidence">4624 LogonType 2 @ 13:58 — User: <span class="hl">jsmith</span> Workstation: DESK-042<br>
+4624 LogonType 3 @ 08:12 — User: svc_backup<br>
+4634 Logoff @ 12:45 — User: mwilson</div>
+<select id="t2">
+<option value="">Select user</option>
+<option>svc_backup</option>
+<option>jsmith</option>
+<option>mwilson</option>
+<option>SYSTEM</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="2">Check</button><button class="btn-hint" data-hint="2">Hint (-5)</button></div>
+<p class="hint-line" id="hint-2"></p><div id="f2" class="fb"></div></div>
+
+<div class="card"><h3>Task 3 — Payload analysis</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Sandbox report for <code>payload.exe</code>:</p>
+<div class="evidence">Behavior: periodic HTTPS POST every 60s to 185.234.72.19<br>
+Entropy: 7.2 | Signed: No | VT: 42/70 detections<br>
+Tags: <span class="bad">beaconing</span>, trojan.dropper</div>
+<select id="t3">
+<option value="">Select classification</option>
+<option>Benign driver update utility</option>
+<option>Malicious beaconing dropper</option>
+<option>Legitimate Kingston utility</option>
+<option>Windows Defender false positive</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="3">Check</button><button class="btn-hint" data-hint="3">Hint (-5)</button></div>
+<p class="hint-line" id="hint-3"></p><div id="f3" class="fb"></div></div>
+
+<div class="card"><h3>Task 4 — Containment</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Immediate response actions (select all that apply):</p>
+<label class="choice"><input type="checkbox" id="c4a"><span>Disable USB storage ports via GPO/EDR policy</span></label>
+<label class="choice"><input type="checkbox" id="c4b"><span>Isolate host DESK-042 from the network</span></label>
+<label class="choice"><input type="checkbox" id="c4c"><span>Ignore — USB attacks are always benign</span></label>
+<label class="choice"><input type="checkbox" id="c4d"><span>Reboot without collecting evidence</span></label>
+<div class="toolbar"><button class="chk" data-task="4">Check</button><button class="btn-hint" data-hint="4">Hint (-5)</button></div>
+<p class="hint-line" id="hint-4"></p><div id="f4" class="fb"></div></div>
+
+<div class="card"><h3>Task 5 — User awareness</h3>
+<p style="font-size:.85rem;color:#94a3b8;margin-bottom:.5rem">Post-incident recommendation for the organization:</p>
+<label class="choice"><input type="radio" name="t5" value="a"><span>Deploy mandatory USB drop / physical media awareness training</span></label>
+<label class="choice"><input type="radio" name="t5" value="b"><span>Disable all security logging to reduce noise</span></label>
+<label class="choice"><input type="radio" name="t5" value="c"><span>Allow unrestricted USB for convenience</span></label>
+<label class="choice"><input type="radio" name="t5" value="d"><span>Remove endpoint monitoring agents</span></label>
+<div class="toolbar"><button class="chk" data-task="5">Check</button><button class="btn-hint" data-hint="5">Hint (-5)</button></div>
+<p class="hint-line" id="hint-5"></p><div id="f5" class="fb"></div></div>
+</main>
+<div id="flag"><p style="color:#4ade80;font-family:monospace;font-size:1rem">FLAG{USB_DROPPER}</p></div>
+<script src="ctf-engine.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const CTF=initCTF({id:'q01',flag:'FLAG{USB_DROPPER}'});
+const hints={
+1:'USB plug-in maps to device configuration events; file touch maps to object access auditing.',
+2:'Look for LogonType 2 (interactive) closest to 14:00.',
+3:'Periodic outbound HTTPS with high VT detections indicates C2 beaconing.',
+4:'Stop the attack vector (USB) and cut network access to the compromised host.',
+5:'Human factor is critical — train staff not to plug unknown USB devices.'
+};
+document.querySelectorAll('.chk').forEach(b=>b.onclick=()=>{
+const n=+b.dataset.task;
+const ok=n===1?$('e2003').checked&&$('e4663').checked&&!$('e7031').checked&&!$('e4624').checked
+:n===2?$('t2').value==='jsmith'
+:n===3?$('t3').value.includes('beaconing')
+:n===4?$('c4a').checked&&$('c4b').checked&&!$('c4c').checked&&!$('c4d').checked
+:document.querySelector('input[name=t5]:checked')?.value==='a';
+CTF.check(n,ok,'f'+n);
+});
+document.querySelectorAll('[data-hint]').forEach(b=>b.onclick=()=>CTF.hint(+b.dataset.hint,hints[+b.dataset.hint],'hint-'+b.dataset.hint));
+$('btnReset').onclick=()=>CTF.reset();
+</script>
+</body>
+</html>

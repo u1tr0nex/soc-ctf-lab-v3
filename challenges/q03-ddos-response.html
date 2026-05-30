@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q3 DDoS Attack Response</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="ctf-shared.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Rajdhani,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+.back{margin:1rem;color:#ff7b72;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem;font-size:1.05rem}
+header{padding:1rem 2rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #30363d}
+header h1{font-size:1.4rem;color:#ff7b72;font-weight:700}
+.bar{height:8px;width:200px;background:#21262d;border-radius:4px;overflow:hidden;margin-top:.4rem}
+#bar{height:100%;background:linear-gradient(90deg,#f85149,#ffa657);width:0;transition:.3s}
+.overview{border-color:#30363d}
+.graph-wrap{margin:1rem 2rem;padding:1rem;background:#161b22;border:1px solid #30363d;border-radius:12px}
+.graph-label{display:flex;justify-content:space-between;font-size:.8rem;color:#8b949e;margin-bottom:.5rem;font-family:'Roboto Mono',monospace}
+.graph-bars{display:flex;align-items:flex-end;gap:4px;height:100px}
+.graph-bars span{flex:1;background:linear-gradient(180deg,#f85149,#da3633);border-radius:3px 3px 0 0;min-width:8px;animation:barRise 2.5s ease-in-out infinite alternate}
+.graph-bars span:nth-child(1){height:15%;animation-delay:0s}
+.graph-bars span:nth-child(2){height:22%;animation-delay:.1s}
+.graph-bars span:nth-child(3){height:35%;animation-delay:.2s}
+.graph-bars span:nth-child(4){height:48%;animation-delay:.3s}
+.graph-bars span:nth-child(5){height:62%;animation-delay:.4s}
+.graph-bars span:nth-child(6){height:78%;animation-delay:.5s}
+.graph-bars span:nth-child(7){height:88%;animation-delay:.6s}
+.graph-bars span:nth-child(8){height:95%;animation-delay:.7s}
+.graph-bars span:nth-child(9){height:100%;animation-delay:.8s}
+.graph-bars span:nth-child(10){height:98%;animation-delay:.9s}
+@keyframes barRise{from{opacity:.6;filter:brightness(.85)}to{opacity:1;filter:brightness(1.2)}}
+.alert-banner{margin:0 2rem 1rem;padding:.75rem 1rem;background:rgba(248,81,73,.15);border:1px solid #f85149;border-radius:8px;color:#ffa198;font-family:'Roboto Mono',monospace;font-size:.85rem;animation:alertBlink 2s ease-in-out infinite}
+@keyframes alertBlink{50%{border-color:#ffa657}}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;padding:1rem 2rem 2rem}
+.card{background:#161b22;padding:1.15rem;border:1px solid #30363d;border-radius:12px;overflow:hidden}
+.card h3{font-size:1rem;color:#ffa657;margin-bottom:.5rem;font-weight:700}
+button.chk{background:#da3633;color:#fff;border:none;padding:.5rem 1rem;border-radius:8px;cursor:pointer;font-weight:700;font-family:Rajdhani,sans-serif;font-size:1rem}
+.card select,.card input[type=text]{background:#0d1117;color:#e6edf3;border:1px solid #484f58;font-family:'Roboto Mono',monospace;font-size:.85rem}
+#flag{display:none;margin:0 2rem 2rem;text-align:center;border:1px solid #3fb950;padding:1rem;border-radius:10px;background:rgba(63,185,80,.08)}
+#flag.show{display:block}
+#scoreSub{font-size:.75rem;color:#8b949e;margin-top:.2rem}
+</style>
+</head>
+<body>
+<a class="back" href="../index.html"><i class="fa fa-arrow-left"></i> Back to hub</a>
+<header>
+<div><h1><i class="fa fa-server"></i> Q3 — DDoS Attack Response</h1></div>
+<div class="actions">
+<div>Score <span id="score">0</span>/100</div>
+<div id="scoreSub"></div>
+<div class="bar"><div id="bar"></div></div>
+<button class="btn-reset" type="button" id="btnReset">Reset challenge</button>
+</div>
+</header>
+<div class="overview">
+<h2>Scenario briefing</h2>
+<p>Corporate website <strong>www.acmecorp.com</strong> is severely degraded. Network team reports massive inbound traffic to <strong>port 80</strong> from thousands of unique source IPs. Packets/sec graph is spiking.</p>
+</div>
+<div class="alert-banner"><i class="fa fa-triangle-exclamation"></i> ALERT: Inbound PPS exceeded 2.4M — 14,832 unique source IPs — target: 203.0.113.10:80</div>
+<div class="graph-wrap">
+<div class="graph-label"><span>Inbound packets/sec (last 10 min)</span><span style="color:#f85149">▲ SYN flood detected</span></div>
+<div class="graph-bars"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+</div>
+<main class="grid">
+<div class="card"><h3>Task 1 — Attack classification</h3>
+<p style="font-size:.9rem;color:#8b949e;margin-bottom:.5rem">Based on symptoms, what type of attack is this?</p>
+<select id="t1">
+<option value="">Select attack type</option>
+<option>SQL injection on login form</option>
+<option>Distributed Denial of Service (DDoS)</option>
+<option>Insider data exfiltration via FTP</option>
+<option>Single-host brute force on SSH</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="1">Check</button><button class="btn-hint" data-hint="1">Hint (-5)</button></div>
+<p class="hint-line" id="hint-1"></p><div id="f1" class="fb"></div></div>
+
+<div class="card"><h3>Task 2 — Immediate response</h3>
+<p style="font-size:.9rem;color:#8b949e;margin-bottom:.5rem">First actions during an active volumetric attack:</p>
+<label class="choice"><input type="checkbox" id="r2a"><span>Contact ISP for upstream blackholing / scrubbing</span></label>
+<label class="choice"><input type="checkbox" id="r2b"><span>Enable cloud DDoS protection (e.g. CDN scrubbing)</span></label>
+<label class="choice"><input type="checkbox" id="r2c"><span>Reboot all employee workstations first</span></label>
+<label class="choice"><input type="checkbox" id="r2d"><span>Disable the corporate website DNS permanently</span></label>
+<div class="toolbar"><button class="chk" data-task="2">Check</button><button class="btn-hint" data-hint="2">Hint (-5)</button></div>
+<p class="hint-line" id="hint-2"></p><div id="f2" class="fb"></div></div>
+
+<div class="card"><h3>Task 3 — Traffic pattern analysis</h3>
+<p style="font-size:.9rem;color:#8b949e;margin-bottom:.5rem">Packet capture summary:</p>
+<div class="evidence">TCP flags: <span class="bad">SYN only</span> — 98.7% of packets<br>
+No completed handshakes | No HTTP payloads | Randomized source IPs</div>
+<select id="t3">
+<option value="">Select pattern</option>
+<option>DNS amplification reflection</option>
+<option>SYN flood (half-open connections)</option>
+<option>Normal HTTPS browsing traffic</option>
+<option>ICMP ping sweep only</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="3">Check</button><button class="btn-hint" data-hint="3">Hint (-5)</button></div>
+<p class="hint-line" id="hint-3"></p><div id="f3" class="fb"></div></div>
+
+<div class="card"><h3>Task 4 — Firewall mitigation</h3>
+<p style="font-size:.9rem;color:#8b949e;margin-bottom:.5rem">On-prem mitigation while scrubbing activates:</p>
+<label class="choice"><input type="radio" name="t4" value="a"><span>Open all ports to absorb traffic</span></label>
+<label class="choice"><input type="radio" name="t4" value="b"><span>Enable SYN rate limiting and connection thresholds on firewall</span></label>
+<label class="choice"><input type="radio" name="t4" value="c"><span>Turn off the firewall for throughput</span></label>
+<label class="choice"><input type="radio" name="t4" value="d"><span>Block all inbound port 443 only</span></label>
+<div class="toolbar"><button class="chk" data-task="4">Check</button><button class="btn-hint" data-hint="4">Hint (-5)</button></div>
+<p class="hint-line" id="hint-4"></p><div id="f4" class="fb"></div></div>
+
+<div class="card"><h3>Task 5 — Post-incident improvement</h3>
+<p style="font-size:.9rem;color:#8b949e;margin-bottom:.5rem">Long-term recommendation after recovery:</p>
+<select id="t5">
+<option value="">Select action</option>
+<option>Remove all monitoring to save bandwidth</option>
+<option>Improve DDoS mitigation contract / SLA with provider</option>
+<option>Publish internal passwords for faster response</option>
+<option>Disable port 80 globally without replacement</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="5">Check</button><button class="btn-hint" data-hint="5">Hint (-5)</button></div>
+<p class="hint-line" id="hint-5"></p><div id="f5" class="fb"></div></div>
+</main>
+<div id="flag"><p style="color:#3fb950;font-family:monospace;font-size:1rem">FLAG{DDOS_MITIGATION}</p></div>
+<script src="ctf-engine.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const CTF=initCTF({id:'q03',flag:'FLAG{DDOS_MITIGATION}'});
+const hints={
+1:'Thousands of sources hammering one service points to availability attack.',
+2:'Volumetric attacks need upstream help and cloud scrubbing — not workstation reboots.',
+3:'SYN-only packets with no completed handshakes = SYN flood.',
+4:'Rate-limit half-open connections at the edge firewall.',
+5:'Ensure contractual DDoS protection before the next incident.'
+};
+document.querySelectorAll('.chk').forEach(b=>b.onclick=()=>{
+const n=+b.dataset.task;
+const ok=n===1?$('t1').value.includes('DDoS')
+:n===2?$('r2a').checked&&$('r2b').checked&&!$('r2c').checked&&!$('r2d').checked
+:n===3?$('t3').value.includes('SYN flood')
+:n===4?document.querySelector('input[name=t4]:checked')?.value==='b'
+:$('t5').value.includes('mitigation contract');
+CTF.check(n,ok,'f'+n);
+});
+document.querySelectorAll('[data-hint]').forEach(b=>b.onclick=()=>CTF.hint(+b.dataset.hint,hints[+b.dataset.hint],'hint-'+b.dataset.hint));
+$('btnReset').onclick=()=>CTF.reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q4 Firewall Rule Investigation</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="ctf-shared.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Exo 2',sans-serif;background:#0b0e11;color:#c9d1d9;min-height:100vh}
+.back{margin:1rem;color:#58a6ff;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem}
+header{padding:1rem 2rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;border-bottom:1px solid #21262d}
+header h1{font-size:1.3rem;color:#58a6ff}
+.bar{height:8px;width:200px;background:#21262d;border-radius:4px;overflow:hidden;margin-top:.4rem}
+#bar{height:100%;background:#388bfd;width:0;transition:.3s}
+.overview{border-color:#21262d}
+.fw-panel{margin:1rem 2rem;background:#161b22;border:1px solid #30363d;border-radius:12px;overflow:hidden}
+.fw-toolbar{padding:.65rem 1rem;background:#21262d;display:flex;justify-content:space-between;align-items:center;font-size:.85rem;color:#8b949e}
+.fw-table{width:100%;border-collapse:collapse;font-family:'Share Tech Mono',monospace;font-size:.78rem}
+.fw-table th,.fw-table td{padding:.55rem .75rem;text-align:left;border-bottom:1px solid #21262d}
+.fw-table th{background:#0d1117;color:#8b949e;font-weight:600}
+.fw-table tr.new-row{background:rgba(248,81,73,.12);animation:rowFlash 2.5s ease-in-out infinite}
+.fw-table tr.new-row td{color:#ffa198}
+@keyframes rowFlash{50%{background:rgba(248,81,73,.22)}}
+.edit-sim{margin:1rem 2rem;padding:.75rem 1rem;background:rgba(56,139,253,.08);border:1px dashed #388bfd;border-radius:8px;font-size:.85rem;color:#79c0ff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;padding:1rem 2rem 2rem}
+.card{background:#161b22;padding:1.15rem;border:1px solid #30363d;border-radius:12px;overflow:hidden}
+.card h3{font-size:.95rem;color:#58a6ff;margin-bottom:.5rem}
+button.chk{background:#238636;color:#fff;border:none;padding:.5rem 1rem;border-radius:8px;cursor:pointer;font-weight:600}
+.card select,.card input[type=text]{background:#0d1117;color:#c9d1d9;border:1px solid #484f58}
+#flag{display:none;margin:0 2rem 2rem;text-align:center;border:1px solid #3fb950;padding:1rem;border-radius:10px}
+#flag.show{display:block}
+#scoreSub{font-size:.75rem;color:#8b949e;margin-top:.2rem}
+</style>
+</head>
+<body>
+<a class="back" href="../index.html"><i class="fa fa-arrow-left"></i> Back to hub</a>
+<header>
+<div><h1><i class="fa fa-shield"></i> Q4 — Firewall Rule Change Investigation</h1></div>
+<div class="actions">
+<div>Score <span id="score">0</span>/100</div>
+<div id="scoreSub"></div>
+<div class="bar"><div id="bar"></div></div>
+<button class="btn-reset" type="button" id="btnReset">Reset challenge</button>
+</div>
+</header>
+<div class="overview">
+<h2>Scenario briefing</h2>
+<p>Change management has <strong>no approved request</strong> for a new firewall rule added last night. The rule allows inbound <strong>RDP (3389)</strong> from <strong>any</strong> source to sensitive server <strong>SRV-DB-01</strong> (10.10.5.20).</p>
+</div>
+<div class="edit-sim"><i class="fa fa-pen-to-square"></i> Simulated audit log: Rule <strong>FW-9921</strong> created 03:14 UTC by account <strong>svc_firewall</strong> — no matching change ticket CHG-*****</div>
+<div class="fw-panel">
+<div class="fw-toolbar"><span><i class="fa fa-table"></i> Firewall policy — edge-fw-prod</span><span style="color:#f85149">1 unauthorized change</span></div>
+<table class="fw-table">
+<thead><tr><th>Rule</th><th>Action</th><th>Source</th><th>Dest</th><th>Port</th><th>Modified</th></tr></thead>
+<tbody>
+<tr><td>FW-1001</td><td>ALLOW</td><td>10.0.0.0/8</td><td>SRV-WEB-01</td><td>443</td><td>2026-01-15</td></tr>
+<tr><td>FW-1002</td><td>DENY</td><td>any</td><td>any</td><td>any</td><td>2026-01-15</td></tr>
+<tr class="new-row"><td>FW-9921 ⚠</td><td>ALLOW</td><td>any</td><td>SRV-DB-01 (10.10.5.20)</td><td>3389/RDP</td><td>2026-05-29 03:14</td></tr>
+</tbody>
+</table>
+</div>
+<main class="grid">
+<div class="card"><h3>Task 1 — Who made the change?</h3>
+<p style="font-size:.85rem;color:#8b949e;margin-bottom:.5rem">Audit log identifies the modifying account:</p>
+<div class="evidence">03:14:02 — User <span class="hl">svc_firewall</span> — CREATE rule FW-9921<br>
+03:14:03 — Commit policy edge-fw-prod</div>
+<select id="t1">
+<option value="">Select account</option>
+<option>admin_jsmith</option>
+<option>svc_firewall</option>
+<option>guest</option>
+<option>domain_admin</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="1">Check</button><button class="btn-hint" data-hint="1">Hint (-5)</button></div>
+<p class="hint-line" id="hint-1"></p><div id="f1" class="fb"></div></div>
+
+<div class="card"><h3>Task 2 — Account compromise?</h3>
+<p style="font-size:.85rem;color:#8b949e;margin-bottom:.5rem">Login anomaly for svc_firewall:</p>
+<div class="evidence">03:12:44 — Successful logon from <span class="bad">185.220.101.44</span> (Tor exit node)<br>
+Geo: Russia | Previous 30 days: only 10.10.1.5 (jump host)<br>
+MFA: Not enforced on service account</div>
+<label class="choice"><input type="radio" name="t2" value="a"><span>Normal scheduled maintenance activity</span></label>
+<label class="choice"><input type="radio" name="t2" value="b"><span>Account likely compromised — anomalous foreign login</span></label>
+<label class="choice"><input type="radio" name="t2" value="c"><span>Expected behavior for firewall service account</span></label>
+<label class="choice"><input type="radio" name="t2" value="d"><span>False positive — ignore the login</span></label>
+<div class="toolbar"><button class="chk" data-task="2">Check</button><button class="btn-hint" data-hint="2">Hint (-5)</button></div>
+<p class="hint-line" id="hint-2"></p><div id="f2" class="fb"></div></div>
+
+<div class="card"><h3>Task 3 — Rule usage evidence</h3>
+<p style="font-size:.85rem;color:#8b949e;margin-bottom:.5rem">Connection logs after rule creation:</p>
+<div class="evidence">03:18 — <span class="bad">198.51.100.77</span> → 10.10.5.20:3389 ESTABLISHED<br>
+03:22 — <span class="bad">203.0.113.55</span> → 10.10.5.20:3389 ESTABLISHED<br>
+03:25 — 10.10.2.100 → 10.10.5.20:3389 (internal admin — expected)</div>
+<label class="choice"><input type="checkbox" id="u3a"><span>External IPs successfully connected via the new rule</span></label>
+<label class="choice"><input type="checkbox" id="u3b"><span>Rule was never used — zero connections</span></label>
+<label class="choice"><input type="checkbox" id="u3c"><span>Only localhost connections observed</span></label>
+<div class="toolbar"><button class="chk" data-task="3">Check</button><button class="btn-hint" data-hint="3">Hint (-5)</button></div>
+<p class="hint-line" id="hint-3"></p><div id="f3" class="fb"></div></div>
+
+<div class="card"><h3>Task 4 — Remediation</h3>
+<p style="font-size:.85rem;color:#8b949e;margin-bottom:.5rem">Immediate remediation steps:</p>
+<label class="choice"><input type="checkbox" id="r4a"><span>Delete unauthorized rule FW-9921</span></label>
+<label class="choice"><input type="checkbox" id="r4b"><span>Isolate SRV-DB-01 pending forensic review</span></label>
+<label class="choice"><input type="checkbox" id="r4c"><span>Leave rule in place for attacker convenience</span></label>
+<label class="choice"><input type="checkbox" id="r4d"><span>Document in change management after the fact only</span></label>
+<div class="toolbar"><button class="chk" data-task="4">Check</button><button class="btn-hint" data-hint="4">Hint (-5)</button></div>
+<p class="hint-line" id="hint-4"></p><div id="f4" class="fb"></div></div>
+
+<div class="card"><h3>Task 5 — Credential rotation</h3>
+<p style="font-size:.85rem;color:#8b949e;margin-bottom:.5rem">Post-incident security hygiene:</p>
+<select id="t5">
+<option value="">Select action</option>
+<option>Rotate svc_firewall and related admin credentials</option>
+<option>Share svc_firewall password in Slack for visibility</option>
+<option>Disable all firewall logging</option>
+<option>Grant svc_firewall permanent RDP to all servers</option>
+</select>
+<div class="toolbar"><button class="chk" data-task="5">Check</button><button class="btn-hint" data-hint="5">Hint (-5)</button></div>
+<p class="hint-line" id="hint-5"></p><div id="f5" class="fb"></div></div>
+</main>
+<div id="flag"><p style="color:#3fb950;font-family:monospace;font-size:1rem">FLAG{UNAUTHORIZED_FW_RULE}</p></div>
+<script src="ctf-engine.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const CTF=initCTF({id:'q04',flag:'FLAG{UNAUTHORIZED_FW_RULE}'});
+const hints={
+1:'The audit log names the account that committed the policy change.',
+2:'Tor exit node login from Russia is not normal for a service account.',
+3:'Look for non-RFC1918 source IPs hitting port 3389.',
+4:'Remove the backdoor rule and isolate the database server.',
+5:'Assume credential theft — rotate the compromised service account.'
+};
+document.querySelectorAll('.chk').forEach(b=>b.onclick=()=>{
+const n=+b.dataset.task;
+const ok=n===1?$('t1').value==='svc_firewall'
+:n===2?document.querySelector('input[name=t2]:checked')?.value==='b'
+:n===3?$('u3a').checked&&!$('u3b').checked&&!$('u3c').checked
+:n===4?$('r4a').checked&&$('r4b').checked&&!$('r4c').checked&&!$('r4d').checked
+:$('t5').value.includes('Rotate svc_firewall');
+CTF.check(n,ok,'f'+n);
+});
+document.querySelectorAll('[data-hint]').forEach(b=>b.onclick=()=>CTF.hint(+b.dataset.hint,hints[+b.dataset.hint],'hint-'+b.dataset.hint));
+$('btnReset').onclick=()=>CTF.reset();
+</script>
+</body>
+</html>
